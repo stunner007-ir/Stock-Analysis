@@ -25,17 +25,31 @@ jobs:
         run: |
           docker-compose up -d  # Start Airflow containers defined in a docker-compose.yml file
 
+      - name: Check Airflow Webserver Logs
+        run: |
+          # Check the logs of the Airflow webserver container to see if there are any issues
+          docker-compose logs webserver
+
       - name: Wait for Airflow webserver to be ready
         run: |
           # Wait for the Airflow webserver to be fully up and running
-          until curl -s http://localhost:8080/health | grep '"status":"healthy"'; do
+          # Adjust the timeout and interval as needed
+          timeout=300
+          interval=10
+          elapsed=0
+          while ! curl -s http://localhost:8080/health | grep '"status":"healthy"'; do
             echo "Waiting for Airflow webserver..."
-            sleep 10
+            sleep $interval
+            elapsed=$((elapsed + interval))
+            if [ $elapsed -ge $timeout ]; then
+              echo "Timeout waiting for Airflow webserver"
+              exit 1
+            fi
           done
 
       - name: Trigger Airflow DAG
         run: |
-          # Replace 'airflow-webserver' with the actual name of your Airflow webserver container
+          # Replace 'webserver' with the actual name of your Airflow webserver container
           docker-compose exec webserver airflow dags trigger example_dag
 
       - name: Clean up
