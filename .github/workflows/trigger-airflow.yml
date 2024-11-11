@@ -27,17 +27,17 @@ jobs:
 
       - name: Check Container Status
         run: |
+          echo "Checking container status..."
           docker-compose ps  # Check the status of all containers
 
       - name: Check Airflow Webserver Logs
         run: |
-          # Check the logs of the Airflow webserver container to see if there are any issues
+          echo "Checking Airflow webserver logs..."
           docker-compose logs webserver
 
       - name: Wait for Airflow webserver to be ready
         run: |
-          # Wait for the Airflow webserver to be fully up and running
-          # Adjust the timeout and interval as needed
+          echo "Waiting for Airflow webserver to be ready..."
           timeout=300
           interval=10
           elapsed=0
@@ -50,12 +50,14 @@ jobs:
               exit 1
             fi
           done
+          echo "Airflow webserver is ready."
 
       - name: Trigger Airflow DAG
         run: |
-          # Replace 'webserver' with the actual name of your Airflow webserver container
+          echo "Triggering Airflow DAG..."
           docker-compose exec webserver airflow dags trigger example_dag
 
       - name: Clean up
         run: |
+          echo "Cleaning up..."
           docker-compose down  # Stop and remove Airflow containers
