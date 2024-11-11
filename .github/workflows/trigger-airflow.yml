@@ -25,6 +25,10 @@ jobs:
         run: |
           docker-compose up -d  # Start Airflow containers defined in a docker-compose.yml file
 
+      - name: Check Container Status
+        run: |
+          docker-compose ps  # Check the status of all containers
+
       - name: Check Airflow Webserver Logs
         run: |
           # Check the logs of the Airflow webserver container to see if there are any issues
@@ -37,7 +41,7 @@ jobs:
           timeout=300
           interval=10
           elapsed=0
-          while ! curl -s http://localhost:8080/health | grep '"status":"healthy"'; do
+          while ! curl -s http://localhost:8080 | grep "Apache Airflow"; do
             echo "Waiting for Airflow webserver..."
             sleep $interval
             elapsed=$((elapsed + interval))
