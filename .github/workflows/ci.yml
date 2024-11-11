@@ -52,5 +52,5 @@ jobs:
 
     - name: Run tests
       run: |
-        # Add your test commands here
-        pytest tests/
+        # Run the specific test file
+        pytest /Users/ar-ishu.raj/Desktop/Stock Analysis Project/tests/dags/test_dag_example.py
