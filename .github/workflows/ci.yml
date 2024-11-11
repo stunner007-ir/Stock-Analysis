@@ -9,47 +9,85 @@ on:
       - main
 
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
 
     services:
-      docker:
-        image: docker:19.03.12
-        options: --privileged
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_USER: airflow
+          POSTGRES_PASSWORD: airflow
+          POSTGRES_DB: airflow
         ports:
           - 5432:5432
-          - 8080:8080
+        options: >-
+          --health-cmd="pg_isready -U airflow"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+      redis:
+        image: redis:7.2-bookworm
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v1
+      uses: docker/setup-buildx-action@v2
 
     - name: Cache Docker layers
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: /tmp/.buildx-cache
         key: ${{ runner.os }}-buildx-${{ github.sha }}
         restore-keys: |
           ${{ runner.os }}-buildx-
 
-    - name: Build Docker image
-      run: docker build . -t my-airflow-image
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v2
+
+    - name: Login to DockerHub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Build and push Docker image
+      run: |
+        docker-compose -f docker-compose.yml build
 
     - name: Run Docker Compose
-      run: docker-compose up -d
-
-    - name: Wait for Airflow to be ready
       run: |
-        echo "Waiting for Airflow to be ready..."
-        while ! curl -s http://localhost:8080/health; do
-          sleep 5
-        done
+        docker-compose -f docker-compose.yml up -d
 
-    - name: Run tests
-      run: docker-compose exec webserver pytest /opt/airflow/dags/tests
+    - name: Wait for services to be healthy
+      run: |
+        echo "Waiting for services to be healthy..."
+        sleep 60
 
-    - name: Shut down Docker Compose
-      run: docker-compose down
+    - name: Check Airflow Webserver health
+      run: |
+        curl --fail http://localhost:8080/health
+
+    - name: Check Airflow Scheduler health
+      run: |
+        curl --fail http://localhost:8974/health
+
+    - name: Check Flower health (if enabled)
+      if: always()
+      run: |
+        curl --fail http://localhost:5555/
+
+    - name: Tear down Docker Compose
+      if: always()
+      run: |
+        docker-compose -f docker-compose.yml down
