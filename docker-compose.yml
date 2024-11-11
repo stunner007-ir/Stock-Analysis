@@ -1,3 +1,4 @@
+version: '3'
 services:
   postgres:
     image: postgres:13
@@ -9,11 +10,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   webserver:
-    image: ${AIRFLOW_IMAGE_NAME:-airflow-docker-github-actions:latest}
-    build: .
-    restart: always
-    depends_on:
-      - postgres
+    image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.6.0}
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
@@ -23,14 +20,12 @@ services:
       - ./dags:/opt/airflow/dags
     ports:
       - "8080:8080"
+    depends_on:
+      - postgres
     command: webserver
 
   scheduler:
-    image: ${AIRFLOW_IMAGE_NAME:-airflow-docker-github-actions:latest}
-    build: .
-    restart: always
-    depends_on:
-      - webserver
+    image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.6.0}
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
@@ -38,29 +33,9 @@ services:
       AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     volumes:
       - ./dags:/opt/airflow/dags
-    command: scheduler
-
-  airflow-init:
-    image: ${AIRFLOW_IMAGE_NAME:-airflow-docker-github-actions:latest}
-    build: .
     depends_on:
       - postgres
-    environment:
-      AIRFLOW__CORE__EXECUTOR: LocalExecutor
-      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
-      AIRFLOW__CORE__FERNET_KEY: ''
-      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
-    volumes:
-      - ./dags:/opt/airflow/dags
-    entrypoint: >
-      /bin/bash -c
-      "airflow db init && airflow users create \
-        --username admin \
-        --password admin \
-        --firstname Admin \
-        --lastname User \
-        --role Admin \
-        --email admin@example.com"
+    command: scheduler
 
 volumes:
   postgres_data:

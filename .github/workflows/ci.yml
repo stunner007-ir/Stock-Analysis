@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    services:
+      docker:
+        image: docker:19.03.12
+        options: --privileged
+        ports:
+          - 5432:5432
+          - 8080:8080
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
+
+    - name: Cache Docker layers
+      uses: actions/cache@v2
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-buildx-
+
+    - name: Build Docker image
+      run: docker build . -t my-airflow-image
+
+    - name: Run Docker Compose
+      run: docker-compose up -d
+
+    - name: Wait for Airflow to be ready
+      run: |
+        echo "Waiting for Airflow to be ready..."
+        while ! curl -s http://localhost:8080/health; do
+          sleep 5
+        done
+
+    - name: Run tests
+      run: docker-compose exec webserver pytest /opt/airflow/dags/tests
+
+    - name: Shut down Docker Compose
+      run: docker-compose down
